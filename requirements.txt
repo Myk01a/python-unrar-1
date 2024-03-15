@@ -1,0 +1,5 @@
+EasyProcess==1.1
+entrypoint2==1.1
+patool==2.2.0
+pyunpack==0.3
+
