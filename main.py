@@ -2,6 +2,7 @@ import patoolib
 import string
 import itertools
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 def read_dictionary(file_path):
@@ -10,22 +11,52 @@ def read_dictionary(file_path):
     return dictionary
 
 
-def brut(password_combinations):
+def try_password(pwd):
+    try:
+        pwd_str = ''.join(pwd)
+        patoolib.extract_archive("text2.rar", password=pwd_str)
+        print("Успішно розпаковано з паролем:", pwd_str)
+        return pwd_str
+    except Exception as e:
+        # print("Помилка під час розпакування з паролем", pwd_str, ":", e)
+        return None
+
+
+def brut(password_combinations, batch_size=1000):
+    found_password = None
     start_time = time.time()
-    for pwd in password_combinations:
-        try:
-            pwd_str = ''.join(pwd)
-            patoolib.extract_archive("text2.rar", password=pwd_str)
-            print("Успішно розпаковано з паролем:", pwd_str)
-            break
-        except Exception as e:
-            print("Помилка під час розпакування з паролем", pwd_str, ":", e)
-    else:
-        print("Архів не був розпакований. Не вдалося знайти правильний пароль.")
+    with ThreadPoolExecutor() as executor:
+        batch = []
+        for pwd in password_combinations:
+            batch.append(pwd)
+            if len(batch) >= batch_size:
+                futures = [executor.submit(try_password, pwd) for pwd in batch]
+                for future in futures:
+                    result = future.result()
+                    if result:
+                        found_password = result
+                        break
+                if found_password:
+                    break
+                batch = []
+
+        if batch:
+            futures = [executor.submit(try_password, pwd) for pwd in batch]
+            for future in futures:
+                result = future.result()
+                if result:
+                    found_password = result
+                    break
 
     end_time = time.time()
     elapsed_time = end_time - start_time
     print("Час, затрачений на пошук пароля: {:.2f} секунд".format(elapsed_time))
+    if found_password:
+        print("Знайдений пароль:", found_password)
+    else:
+        print("Пароль не був знайдений.")
+
+    return found_password
 
 
 def menu():
